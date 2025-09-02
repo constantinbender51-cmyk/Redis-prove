@@ -1,5 +1,6 @@
 const express = require('express');
 const { createClient } = require('redis');
+const fetch = require('node-fetch');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -56,6 +57,25 @@ app.get('/get/:key', async (req, res) => {
         }
     } catch (error) {
         res.status(500).send(`Error getting key: "${key}". Error: ${error.message}`);
+    }
+});
+
+// Route to fetch content from a URL and save it to Redis
+app.get('/fetch-and-save', async (req, res) => {
+    const urlToFetch = 'https://noise-remover-production-8534.up.railway.app/architects/';
+    const redisKey = 'architects-content';
+
+    try {
+        const response = await fetch(urlToFetch);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch URL with status: ${response.status} ${response.statusText}`);
+        }
+        const textContent = await response.text();
+        await redisClient.set(redisKey, textContent);
+        res.status(200).send(`Successfully fetched content from ${urlToFetch} and saved to Redis key "${redisKey}"`);
+    } catch (error) {
+        console.error('Error fetching and saving content:', error);
+        res.status(500).send(`Error fetching or saving content. Error: ${error.message}`);
     }
 });
 
