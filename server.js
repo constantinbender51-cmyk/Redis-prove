@@ -1,6 +1,5 @@
 const express = require('express');
 const { createClient } = require('redis');
-const fetch = require('node-fetch');
 const cheerio = require('cheerio');
 
 const app = express();
