@@ -60,7 +60,7 @@ app.get('/get/:key', async (req, res) => {
     }
 });
 
-// Route to fetch content from a URL and save it to Redis with a new timestamped key
+// Route to fetch content from a URL, extract text, and save it to Redis with a new timestamped key
 app.get('/fetch-and-save', async (req, res) => {
     const urlToFetch = 'https://deepseek-author-production.up.railway.app/';
     const timestamp = Date.now();
@@ -71,9 +71,15 @@ app.get('/fetch-and-save', async (req, res) => {
         if (!response.ok) {
             throw new Error(`Failed to fetch URL with status: ${response.status} ${response.statusText}`);
         }
-        const textContent = await response.text();
+        const htmlContent = await response.text();
+        
+        // Use string manipulation to extract the content from the <pre> tag
+        const startIndex = htmlContent.indexOf('<pre>') + 5;
+        const endIndex = htmlContent.indexOf('</pre>', startIndex);
+        const textContent = htmlContent.substring(startIndex, endIndex).trim();
+
         await redisClient.set(redisKey, textContent);
-        res.status(200).send(`Successfully fetched content from ${urlToFetch} and saved to a new Redis key: "${redisKey}"`);
+        res.status(200).send(`Successfully fetched content from ${urlToFetch}, extracted text, and saved to a new Redis key: "${redisKey}"`);
     } catch (error) {
         console.error('Error fetching and saving content:', error);
         res.status(500).send(`Error fetching or saving content. Error: ${error.message}`);
