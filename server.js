@@ -63,7 +63,7 @@ app.get('/get/:key', async (req, res) => {
 // Route to fetch content from a URL and save it to Redis
 app.get('/fetch-and-save', async (req, res) => {
     const urlToFetch = 'https://deepseek-author-production.up.railway.app';
-    const redisKey = 'architects-content';
+    const redisKey = 'content';
 
     try {
         const response = await fetch(urlToFetch);
