@@ -34,7 +34,7 @@ app.get('/', async (req, res) => {
     try {
         // Get all keys from Redis
         const keys = await redisClient.keys('*');
-        
+
         let htmlContent = `
             <!DOCTYPE html>
             <html lang="en">
@@ -74,13 +74,19 @@ app.get('/', async (req, res) => {
         `;
 
         if (keys.length > 0) {
-            keys.forEach(key => {
-                htmlContent += `<button class="key-button" onclick="loadValue('${key}')">${key}</button>`;
+            // Fetch the content for each key to get the full title
+            const keyContentPromises = keys.map(key => redisClient.get(key));
+            const allContent = await Promise.all(keyContentPromises);
+            
+            keys.forEach((key, index) => {
+                const content = allContent[index];
+                const buttonText = content ? content.split('\n')[0].trim() : key;
+                htmlContent += `<button class="key-button" onclick="loadValue('${key}')">${buttonText}</button>`;
             });
         } else {
             htmlContent += `<p>No keys found in Redis. Try setting some at <a href="/set/mykey/myvalue">/set/mykey/myvalue</a> or by visiting <a href="/fetch-and-save">/fetch-and-save</a>.</p>`;
         }
-        
+
         htmlContent += `
                 </div>
                 <div id="value-display">Select a key to see its value here.</div>
@@ -153,11 +159,9 @@ app.get('/get/:key', async (req, res) => {
     }
 });
 
-// Route to fetch content from a URL, extract text, and save it to Redis with a new timestamped key
+// Route to fetch content from a URL, extract text, and save it to Redis with the book's title as the key
 app.get('/fetch-and-save', async (req, res) => {
     const urlToFetch = 'https://deepseek-author-production.up.railway.app/';
-    const timestamp = Date.now();
-    const redisKey = `content-${timestamp}`;
 
     try {
         const response = await fetch(urlToFetch);
@@ -165,11 +169,15 @@ app.get('/fetch-and-save', async (req, res) => {
             throw new Error(`Failed to fetch URL with status: ${response.status} ${response.statusText}`);
         }
         const htmlContent = await response.text();
-        
+
         // Use string manipulation to extract the content from the <pre> tag
         const startIndex = htmlContent.indexOf('<pre>') + 5;
         const endIndex = htmlContent.indexOf('</pre>', startIndex);
         const textContent = htmlContent.substring(startIndex, endIndex).trim();
+
+        // Extract the first line as the book title and sanitize it for use as a Redis key.
+        const bookTitle = textContent.split('\n')[0].trim();
+        const redisKey = bookTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
         await redisClient.set(redisKey, textContent);
         res.status(200).send(`Successfully fetched content from ${urlToFetch}, extracted text, and saved to a new Redis key: "${redisKey}"`);
